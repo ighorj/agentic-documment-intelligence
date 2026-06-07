@@ -27,10 +27,16 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--domain", default="generic", help="domain schema to apply")
     p.add_argument("--json", dest="json_out", metavar="PATH", help="write full JSON result to PATH")
     p.add_argument("--trace", action="store_true", help="print the per-agent execution trace")
-    p.add_argument("--report", action="store_true", help="print an OCR confidence/quality report")
+    p.add_argument("--report", action="store_true", help="print a confidence/quality report")
     p.add_argument(
         "--report-json", dest="report_out", metavar="PATH", help="write the confidence report JSON to PATH"
     )
+    p.add_argument(
+        "--ai",
+        action="store_true",
+        help="use the AI-native Claude extractor (vision + self-correction); needs ANTHROPIC_API_KEY",
+    )
+    p.add_argument("--model", help="Claude model id for --ai (default: claude-opus-4-8)")
     p.add_argument("--list-domains", action="store_true", help="list available domains and exit")
     return p
 
@@ -50,6 +56,8 @@ def _render_human(result) -> str:
         lines.append(f"  [{mark}] {f.name}: {f.value}{corr}  conf={f.confidence:.2f}")
         if f.validation_error:
             lines.append(f"        ! {f.validation_error}")
+        if f.evidence:
+            lines.append(f"        ↳ evidence: \"{f.evidence}\"")
     if result.warnings:
         lines.append("warnings:")
         lines.extend(f"  - {w}" for w in result.warnings)
@@ -59,7 +67,7 @@ def _render_human(result) -> str:
 def _render_report(report) -> str:
     lines = [
         "",
-        "OCR confidence report",
+        "confidence report",
         f"  grade        : {report.grade}",
         f"  confidence   : {report.overall_confidence:.2f}",
         f"  weak blocks  : {report.weak_block_count}/{report.total_blocks} "
@@ -100,23 +108,29 @@ def main(argv: list[str] | None = None) -> int:
         print("error: provide an input file or --text", file=sys.stderr)
         return 2
 
-    try:
-        pipeline = DocumentIntelligencePipeline(domain=args.domain)
-    except KeyError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
-
+    text = None
     if args.text is not None:
         text = sys.stdin.read() if args.text == "-" else args.text
-        source = DocumentSource(doc_id="inline", raw_text=text)
-    else:
-        source = DocumentSource(doc_id=Path(args.input).stem, path=args.input)
 
-    want_report = args.report or args.report_out
-    if want_report:
-        result, report = pipeline.run_with_report(source)
+    if args.ai:
+        result, report, trace = _run_ai(args, text)
+        if result is None:
+            return 2
     else:
-        result, report = pipeline.run(source), None
+        try:
+            pipeline = DocumentIntelligencePipeline(domain=args.domain)
+        except KeyError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        if text is not None:
+            source = DocumentSource(doc_id="inline", raw_text=text)
+        else:
+            source = DocumentSource(doc_id=Path(args.input).stem, path=args.input)
+        if args.report or args.report_out:
+            result, report = pipeline.run_with_report(source)
+        else:
+            result, report = pipeline.run(source), None
+        trace = pipeline.trace
 
     print(_render_human(result))
 
@@ -125,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.trace:
         print("\ntrace:")
-        print("\n".join(f"  {line}" for line in pipeline.trace))
+        print("\n".join(f"  {line}" for line in trace))
 
     if args.json_out:
         with open(args.json_out, "w", encoding="utf-8") as fh:
@@ -139,6 +153,30 @@ def main(argv: list[str] | None = None) -> int:
 
     # Non-zero exit if any required field failed, so this composes in scripts/CI.
     return 0 if all(f.valid for f in result.fields) else 1
+
+
+def _run_ai(args, text):
+    """Run the AI-native Claude extractor. Returns (result, report, trace) or
+    (None, None, None) on a setup error (message already printed)."""
+    try:
+        from adi.ai import ClaudeDocumentIntelligence
+    except ImportError:
+        print("error: --ai requires the 'ai' extra (pip install -e \".[ai]\")", file=sys.stderr)
+        return None, None, None
+    try:
+        pipeline = ClaudeDocumentIntelligence(domain=args.domain, model=args.model)
+    except KeyError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return None, None, None
+    except Exception as exc:  # e.g. missing ANTHROPIC_API_KEY at client construction
+        print(f"error: could not initialize Claude client: {exc}", file=sys.stderr)
+        return None, None, None
+
+    if text is not None:
+        result, report = pipeline.process_text(text)
+    else:
+        result, report = pipeline.process_file(args.input)
+    return result, report, pipeline.trace
 
 
 if __name__ == "__main__":

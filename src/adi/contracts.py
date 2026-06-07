@@ -167,6 +167,8 @@ class ExtractedField(BaseModel):
     validation_error: str | None = None
     # The original OCR text before any correction was applied.
     raw_value: str | None = None
+    # A short verbatim quote from the document supporting this value (AI extractor).
+    evidence: str | None = None
     source_bbox: BoundingBox | None = None
 
 
