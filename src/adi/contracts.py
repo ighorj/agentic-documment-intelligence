@@ -183,3 +183,59 @@ class DocumentResult(BaseModel):
 
     def field(self, name: str) -> ExtractedField | None:
         return next((f for f in self.fields if f.name == name), None)
+
+
+# ---------------------------------------------------------------------------
+# Agent 4 output: confidence / quality report
+# ---------------------------------------------------------------------------
+
+
+class WeakRegion(BaseModel):
+    """A region whose recognition confidence fell below the report threshold."""
+
+    page_no: int = Field(ge=0)
+    region_type: RegionType = RegionType.PARAGRAPH
+    confidence: float = Field(ge=0.0, le=1.0)
+    text_preview: str = ""
+    engine: str = "unknown"
+    bbox: BoundingBox | None = None
+    # The individual tokens dragging the block's confidence down.
+    weak_tokens: list[str] = Field(default_factory=list)
+
+
+class PageConfidence(BaseModel):
+    """Per-page roll-up of recognition confidence."""
+
+    page_no: int = Field(ge=0)
+    mean_confidence: float = Field(ge=0.0, le=1.0, default=0.0)
+    block_count: int = Field(ge=0, default=0)
+    weak_block_count: int = Field(ge=0, default=0)
+
+
+class FieldIssue(BaseModel):
+    """A structured field flagged for review (low confidence and/or invalid)."""
+
+    name: str
+    value: str
+    confidence: float = Field(ge=0.0, le=1.0, default=0.0)
+    valid: bool = True
+    reason: str = ""
+
+
+class ConfidenceReport(BaseModel):
+    """Output of the ReportingAgent: where OCR is confident and where it is not."""
+
+    doc_id: str
+    overall_confidence: float = Field(ge=0.0, le=1.0, default=0.0)
+    grade: str = "F"  # A/B/C/D/F quality grade derived from confidence + coverage
+    total_blocks: int = Field(ge=0, default=0)
+    weak_block_count: int = Field(ge=0, default=0)
+    threshold: float = Field(ge=0.0, le=1.0, default=0.75)
+    pages: list[PageConfidence] = Field(default_factory=list)
+    weak_regions: list[WeakRegion] = Field(default_factory=list)
+    field_issues: list[FieldIssue] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+
+    @property
+    def weak_block_ratio(self) -> float:
+        return self.weak_block_count / self.total_blocks if self.total_blocks else 0.0

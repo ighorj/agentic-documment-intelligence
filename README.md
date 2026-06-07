@@ -4,9 +4,9 @@ A **local-first, multi-agent OCR system** for optimized document understanding �
 built for regulated domains like **healthcare** and **finance** where document
 data must never leave the premises.
 
-Three small, single-purpose agents are wired together through strict typed
-contracts. Each agent does one job well, is independently testable, and can be
-swapped without touching the others.
+Small, single-purpose agents are wired together through strict typed contracts.
+Each agent does one job well, is independently testable, and can be swapped
+without touching the others.
 
 ```
                       DocumentSource (PDF / image / text)
@@ -31,8 +31,15 @@ swapped without touching the others.
             │  • domain validation (ICD-10/NPI/IBAN/…)    │
             │  • structured fields + provenance + warns   │
             └─────────────────────┬─────────────────────┘
+                     DocumentResult │ + RecognizedDocument
+            ┌─────────────────────▼─────────────────────┐
+            │  Agent 4 · Confidence & Quality Reporting  │
+            │  • per-page / per-region confidence rollup │
+            │  • pinpoints weak regions (page+bbox+text) │
+            │  • A–F grade + actionable recommendations  │
+            └─────────────────────┬─────────────────────┘
                                   ▼
-                          DocumentResult  (clean structured JSON)
+            DocumentResult + ConfidenceReport  (clean structured JSON)
 ```
 
 ## Why this design
@@ -48,6 +55,10 @@ swapped without touching the others.
   impossible values are flagged instead of silently passed downstream.
 - **Auditable.** Every value keeps provenance (bounding box + confidence), and
   each run produces a per-agent trace — essential for regulated data.
+- **Knows where it's weak.** A dedicated reporting agent grades each document and
+  surfaces exactly which pages/regions/fields are low-confidence, with concrete
+  next steps (rescan, escalate engine, manual review) instead of a single opaque
+  score.
 - **Fully local.** No cloud calls, no API keys. The optional LLM correction step
   runs against a local model (Ollama) or a deterministic rule-based fallback.
 
@@ -81,11 +92,34 @@ for f in result.fields:
 print("warnings:", result.warnings)
 ```
 
+### Confidence / quality report (Agent 4)
+
+Get a structured report of *where OCR is lacking* alongside the extracted data:
+
+```python
+result, report = pipeline.run_with_report(  # or pass a DocumentSource
+    DocumentSource(doc_id="scan", path="scan.png")
+)
+
+print(report.grade)               # 'A'..'F'
+print(report.overall_confidence)  # 0.0..1.0
+for region in report.weak_regions:        # worst-first
+    print(region.page_no, region.bbox, region.confidence, region.weak_tokens)
+for fi in report.field_issues:            # low-confidence or invalid fields
+    print(fi.name, fi.reason)
+for rec in report.recommendations:        # actionable next steps
+    print(rec)
+```
+
+The grade blends mean confidence with how much of the document is weak, so a high
+average can't hide a document where a large fraction of regions are shaky.
+
 ### CLI
 
 ```bash
 ocr-extract discharge.pdf --domain healthcare
 ocr-extract invoice.pdf  --domain finance --json out.json --trace
+ocr-extract scan.pdf     --domain healthcare --report --report-json report.json
 echo "MRN: 0O123456" | ocr-extract --text - --domain healthcare
 ocr-extract --list-domains
 ```
@@ -133,11 +167,11 @@ src/adi/
   contracts.py        # typed models passed between agents (the backbone)
   pipeline.py         # orchestrator wiring the 3 agents together
   cli.py              # `ocr-extract` entry point
-  agents/             # ingestion · recognition · validation
+  agents/             # ingestion · recognition · validation · reporting
   engines/            # OCR backends: mock + tesseract (pluggable)
   llm/                # local correctors: rule-based + ollama (pluggable)
   schemas/            # domain field specs + validators (healthcare, finance)
-tests/                # unit + end-to-end tests (27, all local)
+tests/                # unit + end-to-end tests (33, all local)
 examples/run_demo.py  # zero-dependency demo
 ```
 
@@ -151,6 +185,6 @@ Create `src/adi/schemas/<domain>.py` with a `SCHEMA = DomainSchema(...)` of
 ## Tests
 
 ```bash
-pytest -q          # 27 tests, fully offline
+pytest -q          # 33 tests, fully offline
 ruff check src tests
 ```

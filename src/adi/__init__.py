@@ -11,7 +11,7 @@ Quick start
 """
 
 from adi.agents import DocumentSource
-from adi.contracts import DocumentResult, ExtractedField
+from adi.contracts import ConfidenceReport, DocumentResult, ExtractedField
 from adi.pipeline import DocumentIntelligencePipeline
 from adi.schemas import available_domains
 
@@ -21,6 +21,7 @@ __all__ = [
     "DocumentIntelligencePipeline",
     "DocumentSource",
     "DocumentResult",
+    "ConfidenceReport",
     "ExtractedField",
     "available_domains",
 ]
