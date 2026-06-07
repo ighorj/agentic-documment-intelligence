@@ -33,8 +33,8 @@ It is built around **Claude vision** (model `claude-opus-4-8`) as the recognitio
 
 #### ❌ OCR + regex (the naïve way)
 ```text
-Name: ROBESON, DEBORAH
-DOB: 07/06/1954
+Name: MORGAN, ALICE
+DOB: 03/15/1962
 ```
 A rigid extractor looks for the literal label
 `Patient Name:` followed by a Titlecase name
@@ -49,10 +49,10 @@ Hopeless.
 #### ✅ Agentic Document Intelligence
 ```json
 {
-  "patient_name": {"value": "Deborah Robeson",
+  "patient_name": {"value": "Alice Morgan",
                    "confidence": 0.96,
-                   "evidence": "ROBESON, DEBORAH"},
-  "dob":  {"value": "1954-07-06", "confidence": 0.95},
+                   "evidence": "MORGAN, ALICE"},
+  "dob":  {"value": "1962-03-15", "confidence": 0.95},
   "npi":  {"value": "1234567893", "valid": true},
   "grade": "A"
 }
@@ -208,8 +208,8 @@ Each domain's fields become a strict JSON schema, so the response is **guarantee
 
 ```jsonc
 {
-  "patient_name": { "value": "Deborah Robeson", "confidence": 0.96, "evidence": "ROBESON, DEBORAH" },
-  "dob":          { "value": "1954-07-06",      "confidence": 0.95, "evidence": "DOB: 07/06/1954" },
+  "patient_name": { "value": "Alice Morgan", "confidence": 0.96, "evidence": "MORGAN, ALICE" },
+  "dob":          { "value": "1962-03-15",   "confidence": 0.95, "evidence": "DOB: 03/15/1962" },
   "npi":          { "value": "1234567893",      "confidence": 0.90, "evidence": "NPI 1234567893" }
 }
 ```
