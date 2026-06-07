@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-document-intelligence"
+version = "0.1.0"
+description = "Local-first, multi-agent OCR system for optimized document understanding (healthcare, finance, ...)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "agentic-document-intelligence" }]
+dependencies = [
+    "pydantic>=2.5",
+]
+
+# Optional, fully-local engines. The base install runs out-of-the-box with the
+# built-in MockOCREngine so you can exercise the full pipeline with zero native deps.
+[project.optional-dependencies]
+ocr = [
+    "pytesseract>=0.3.10",   # bindings for the local Tesseract binary
+    "Pillow>=10.0",          # image handling
+    "pdf2image>=1.17",       # rasterize scanned PDFs (needs poppler)
+    "pypdf>=4.0",            # extract text from digital PDFs
+    "numpy>=1.24",
+    "opencv-python-headless>=4.8",  # deskew / denoise preprocessing
+]
+llm = [
+    # Optional local LLM backends for the Validation agent (all run on-prem).
+    # e.g. `ollama` python client; left commented so the base stays dependency-light.
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+ocr-extract = "adi.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
