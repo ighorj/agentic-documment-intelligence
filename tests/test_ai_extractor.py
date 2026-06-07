@@ -36,8 +36,8 @@ class FakeClient:
 
 def _hc_response(npi="1234567893"):
     return {
-        "patient_name": {"value": "Deborah Robeson", "confidence": 0.96, "evidence": "ROBESON, DEBORAH"},
-        "dob": {"value": "1954-07-06", "confidence": 0.95, "evidence": "DOB: 07/06/1954"},
+        "patient_name": {"value": "Alice Morgan", "confidence": 0.96, "evidence": "MORGAN, ALICE"},
+        "dob": {"value": "1962-03-15", "confidence": 0.95, "evidence": "DOB: 03/15/1962"},
         "mrn": {"value": "00123456", "confidence": 0.93, "evidence": "MRN 00123456"},
         "npi": {"value": npi, "confidence": 0.9, "evidence": f"NPI {npi}"},
         "primary_diagnosis_code": {"value": "E11.9", "confidence": 0.88, "evidence": "E11.9"},
@@ -50,10 +50,10 @@ def test_extracts_and_validates_clean_document():
     result, report = agent.run([{"type": "text", "text": "..."}], doc_id="d")
 
     assert result.metadata["engine"] == "claude"
-    # Note: real labels were "ROBESON, DEBORAH" / "07/06/1954" — the model
+    # Note: source labels were "MORGAN, ALICE" / "03/15/1962" — the model
     # normalizes semantically, which is the whole point vs. regex.
-    assert result.field("patient_name").value == "Deborah Robeson"
-    assert result.field("dob").value == "1954-07-06"
+    assert result.field("patient_name").value == "Alice Morgan"
+    assert result.field("dob").value == "1962-03-15"
     assert all(f.valid for f in result.fields)
     assert report.grade in ("A", "B")  # all valid, high confidence
     assert not report.field_issues

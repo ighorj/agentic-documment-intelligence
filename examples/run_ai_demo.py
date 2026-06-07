@@ -35,10 +35,11 @@ class StubClaude:
 
 
 def _resp(npi):
-    # Field values mimic Claude reading a real (messy) medical fax and normalizing.
+    # Field values mimic Claude reading a messy medical fax and normalizing
+    # (synthetic sample data — not a real patient).
     return {
-        "patient_name": {"value": "Deborah Robeson", "confidence": 0.96, "evidence": "ROBESON, DEBORAH"},
-        "dob": {"value": "1954-07-06", "confidence": 0.95, "evidence": "DOB: 07/06/1954"},
+        "patient_name": {"value": "Alice Morgan", "confidence": 0.96, "evidence": "MORGAN, ALICE"},
+        "dob": {"value": "1962-03-15", "confidence": 0.95, "evidence": "DOB: 03/15/1962"},
         "mrn": {"value": "00123456", "confidence": 0.92, "evidence": "MRN 00123456"},
         "npi": {"value": npi, "confidence": 0.9, "evidence": f"NPI {npi}"},
         "primary_diagnosis_code": {"value": "E11.9", "confidence": 0.89, "evidence": "Dx E11.9"},
