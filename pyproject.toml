@@ -29,6 +29,11 @@ llm = [
     # Optional local LLM backends for the Validation agent (all run on-prem).
     # e.g. `ollama` python client; left commented so the base stays dependency-light.
 ]
+ai = [
+    # Cloud, AI-native extraction via Claude (vision + structured output).
+    # Needs an ANTHROPIC_API_KEY. The agent is injectable, so tests don't need this.
+    "anthropic>=0.69",
+]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
